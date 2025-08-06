@@ -90,14 +90,20 @@ Finally, we can either **fully SSR** the data (in `+page.ts` or `+layout.ts`)
 ```ts
 // src/routes/userSSR/[userId]/+page.ts
 
+import { error } from '@sveltejs/kit'
 import { orpc } from '$lib/orpc'
+import { z } from 'zod'
 
 export async function load({ parent, params: { userId }, fetch }) {
-  const id = someValidation(userId)
+  const parsed = z.coerce.number().int().gte(0).safeParse(userId)
+  if (!parsed.success) {
+    error(400, 'Invalid user ID')
+  }
+  const id = parsed.data
 
   const { queryClient } = await parent()
   await queryClient.ensureQueryData(
-    // Must past fetch if orpc is used in ensureQueryData
+    // Must pass fetch if orpc is used in ensureQueryData
     orpc.user.get.queryOptions({ input: { id }, context: { fetch } })
   )
 
@@ -111,10 +117,17 @@ or **just prefetch** the data (in `+page.ts` or `+layout.ts`)
 ```ts
 // src/routes/userLoading/[userId]/+page.ts
 
+import { error } from '@sveltejs/kit'
+import { browser } from '$app/environment'
 import { orpc } from '$lib/orpc'
+import { z } from 'zod'
 
 export async function load({ parent, params: { userId } }) {
-  const id = someValidation(userId)
+  const parsed = z.coerce.number().int().gte(0).safeParse(userId)
+  if (!parsed.success) {
+    error(400, 'Invalid user ID')
+  }
+  const id = parsed.data
 
   const { queryClient } = await parent()
   // MUST ADD browser check to avoid prefetching on server
@@ -162,7 +175,7 @@ export async function load() {
 You'd be happy to know that you can query on the client with the same `orpc` syntax as before.
 
 > [!NOTE]
-> If you SSR the data, you can assume the data is already fetched and available in the query client. I usually do a non-null assertion `const user = $derived(user.data!)`.
+> If you SSR the data, you can assume the data is already fetched and available in the query client. I usually do a non-null assertion `const user = $derived($userQuery.data!)`.
 
 ```ts
 // src/lib/components/UserCard.svelte
@@ -173,9 +186,7 @@ You'd be happy to know that you can query on the client with the same `orpc` syn
 
   let { userId }: { userId: number } = $props()
 
-  const userQuery = $derived(
-    createQuery(orpc.user.get.queryOptions({ input: { id: userId } })),
-  )
+  const userQuery = $derived(createQuery(orpc.user.get.queryOptions({ input: { id: userId } })))
 </script>
 
 <div>
