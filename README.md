@@ -19,7 +19,7 @@ bun run dev
 ## Implementation
 
 > [!IMPORTANT]
-> This README assumes that you already have [Tanstack Query](https://tanstack.com/query/v5/docs/framework/svelte/ssr) and [oRPC](https://orpc.unnoq.com/docs/integrations/tanstack-query-old/svelte) setup in your project.
+> This README assumes that you already have [Tanstack Query](https://tanstack.com/query/v5/docs/framework/svelte/ssr) and [oRPC](https://orpc.unnoq.com/docs/integrations/tanstack-query) setup in your project.
 >
 > If you are still confused with the implementation, **READ THIS PROJECT'S SOURCE CODE**.
 
@@ -37,29 +37,35 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 + import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins'
 import type { RouterClient } from '@orpc/server'
-import { createORPCSvelteQueryUtils } from '@orpc/svelte-query'
-import { browser, dev } from '$app/environment'
+import { createTanstackQueryUtils } from '@orpc/tanstack-query'
+import { browser } from '$app/environment'
 
 +  interface ClientContext {
 +    fetch?: typeof fetch
 +  }
 
-const baseURL = browser ? location.origin : `http://localhost:${dev ? 5173 : 3000}`
++ function getBaseURL() {
++   return browser ? window.location.origin : globalThis.serverURL
++ }
 
 const link = new RPCLink<ClientContext>({
-    url: `${baseURL}/rpc`,
++   url: () => `${getBaseURL()}/rpc`,
++   // GET method tells sveltekit to cache the initial response for client hydration
 +   method: 'GET',
 +   fetch: (request, init, { context: { fetch: fetcher } }) => {
++     // fetcher will be the fetch (if provided) passed from +page.ts or +layout.svelte
 +     return (fetcher ?? fetch)(request, init)
 +   },
 +   plugins: [
++     // We disabled the StrictGetMethodPlugin as all methods are GET
++     // But we still need to protect against CSRF attacks
 +     new SimpleCsrfProtectionLinkPlugin(),
 +   ],
 })
 
 - const client: RouterClient<typeof router> = createORPCClient(link)
 +  const client: RouterClient<typeof router, ClientContext> = createORPCClient(link)
-export const orpc = createORPCSvelteQueryUtils(client)
+export const orpc = createTanstackQueryUtils(client)
 ```
 
 ```diff
@@ -68,7 +74,9 @@ export const orpc = createORPCSvelteQueryUtils(client)
 + import { SimpleCsrfProtectionHandlerPlugin } from '@orpc/server/plugins'
 
 const handler = new RPCHandler(router, {
++  // We disabled the StrictGetMethodPlugin as all methods are GET
 +  strictGetMethodPluginEnabled: false,
++  // But we still need to protect against CSRF attacks
 +  plugins: [new SimpleCsrfProtectionHandlerPlugin()],
 })
 ```
@@ -77,6 +85,9 @@ const handler = new RPCHandler(router, {
 // src/hooks.server.ts
 
 export async function handle({ event, resolve }) {
+  // Let oRPC know the server URL
+  globalThis.serverURL = event.url.origin
+
   const response = await resolve(event, {
     filterSerializedResponseHeaders: (name) => name === 'content-type',
   })
