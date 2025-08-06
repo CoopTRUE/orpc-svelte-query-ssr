@@ -7,14 +7,19 @@
   const userQuery = $derived(createQuery(orpc.user.get.queryOptions({ input: { id: userId } })))
 </script>
 
-{#if $userQuery.isSuccess}
-  {@const { id, name, email, createdAt } = $userQuery.data}
-  <div>
-    <h2>User {id}</h2>
+<div>
+  {#if $userQuery.isSuccess}
+    {@const { id, name, email, createdAt } = $userQuery.data}
+    <h2>Id: {id}</h2>
     <p>Name: {name}</p>
     <p>Email: {email}</p>
     <p>Created At: {createdAt}</p>
-  </div>
-{:else}
-  <p>Loading...</p>
-{/if}
+  {:else}
+    <div class="space-y-3">
+      <div class="h-6 bg-gray-300 animate-pulse rounded-md w-24"></div>
+      <div class="h-4 bg-gray-300 animate-pulse rounded-md w-48"></div>
+      <div class="h-4 bg-gray-300 animate-pulse rounded-md w-56"></div>
+      <div class="h-4 bg-gray-300 animate-pulse rounded-md w-40"></div>
+    </div>
+  {/if}
+</div>

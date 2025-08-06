@@ -2,52 +2,41 @@
   let userInput = $state<number>()
 </script>
 
-<header>
-  <nav>
-    <div>
-      <p>Navigate to:</p>
-      <a href="/">Home</a>
-      <a href="/user/1">User 1</a>
-      <a href="/user/2">User 2</a>
-      <a href="/user/10">User 10</a>
-      <a href="/user/100">User 100</a>
-      <a href="/user/-1">User Invalid</a>
+<nav class="flex flex-col gap-4 w-64 bg-gray-800 rounded-lg p-4 justify-evenly">
+  <div class="flex flex-col gap-2">
+    <p>Navigate to (SSR):</p>
+    <a href="/">Home</a>
+    <a href="/userSSR/1">User 1</a>
+    <a href="/userSSR/2">User 2</a>
+    <a href="/userSSR/10">User 10</a>
+    <a href="/userSSR/100">User 100</a>
+    <a href="/userSSR/-1">User Invalid</a>
+  </div>
+  <div class="flex flex-col gap-2">
+    <p>Navigate to (Loading):</p>
+    <a href="/userLoading/1">User 1</a>
+    <a href="/userLoading/2">User 2</a>
+    <a href="/userLoading/10">User 10</a>
+    <a href="/userLoading/100">User 100</a>
+    <a href="/userLoading/-1">User Invalid</a>
+  </div>
+  <div>
+    <div class="grid grid-cols-2 gap-2 text-center">
+      {#if !isNaN(userInput ?? NaN)}
+        <a href="/userSSR/{userInput}">Goto (SSR)</a>
+        <a href="/userLoading/{userInput}">Goto (Loading)</a>
+      {/if}
     </div>
-    <div>
-      <p>Navigate to (with loading):</p>
-      <a href="/userWithLoading/1">User 1</a>
-      <a href="/userWithLoading/2">User 2</a>
-      <a href="/userWithLoading/10">User 10</a>
-      <a href="/userWithLoading/100">User 100</a>
-      <a href="/userWithLoading/-1">User Invalid</a>
-    </div>
-    <div>
-      <p>Custom navigate:</p>
-      <label>
-        <input placeholder="User ID" type="number" bind:value={userInput} />
-        {#if userInput !== undefined}
-          <a href="/user/{userInput}">Go to user {userInput}</a>
-          <a href="/userWithLoading/{userInput}">Go to user {userInput} (Loading)</a>
-        {/if}
-      </label>
-    </div>
-  </nav>
-</header>
+    <label>
+      <p class="mb-2">Custom navigate:</p>
+      <input class="w-full mb-2" placeholder="User ID" type="number" bind:value={userInput} />
+    </label>
+  </div>
+</nav>
 
 <style lang="postcss">
-  nav {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
+  @reference "tailwindcss";
   a {
-    background-color: #f0f0f0;
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    text-decoration: none;
-    color: black;
+    @apply text-blue-500 bg-blue-100 rounded-md p-2;
   }
 </style>

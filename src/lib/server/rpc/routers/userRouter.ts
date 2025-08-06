@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 export const userRouter = {
   get: os.input(z.object({ id: z.int().gte(0) })).handler(async ({ input }) => {
-    console.log('GET USER', input.id, 'CALLED')
+    console.log('[SERVER] user.get', input.id)
     const user = await getUser(input.id)
     return user
   }),

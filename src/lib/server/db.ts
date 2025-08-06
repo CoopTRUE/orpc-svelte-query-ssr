@@ -1,5 +1,4 @@
 import { faker } from '@faker-js/faker'
-import { z } from 'zod'
 
 interface User {
   id: number
@@ -9,10 +8,9 @@ interface User {
 }
 
 export async function getUser(id: number) {
-  // Seed the faker library with the user id to ensure consistent data
-  faker.seed(id)
   // Simulate a slow database call
-  await new Promise((resolve) => setTimeout(resolve, faker.number.int({ min: 300, max: 1000 })))
+  await new Promise((resolve) => setTimeout(resolve, faker.number.int({ min: 1000, max: 1500 })))
+  // Seed the faker library with the user id to ensure consistent data
   faker.seed(id)
   return {
     id,

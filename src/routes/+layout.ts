@@ -9,7 +9,7 @@ export async function load() {
         refetchOnMount: false,
         refetchOnReconnect: false,
         refetchOnWindowFocus: false,
-        // This doesn't
+        // DO NOT include this, as we want to prefetch and fetch on server
         // enabled: browser,
         experimental_prefetchInRender: true,
       },

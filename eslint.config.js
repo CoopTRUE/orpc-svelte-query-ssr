@@ -35,7 +35,6 @@ export default ts.config(
       'svelte/require-optimized-style-attribute': 'warn',
       'svelte/consistent-selector-style': 'warn',
       'svelte/html-self-closing': 'warn',
-      'svelte/html-closing-bracket-new-line': 'warn',
       'svelte/derived-has-same-inputs-outputs': 'warn',
       'svelte/prefer-class-directive': 'warn',
       'svelte/prefer-style-directive': 'warn',

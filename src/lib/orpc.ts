@@ -1,5 +1,5 @@
 import type { router } from './server/rpc/router'
-import { createORPCClient, onError } from '@orpc/client'
+import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins'
 import type { RouterClient } from '@orpc/server'
@@ -25,11 +25,6 @@ const link = new RPCLink<ClientContext>({
     // But we still need to protect against CSRF attacks
     new SimpleCsrfProtectionLinkPlugin(),
   ],
-  // interceptors: [
-  //   onError((error) => {
-  //     console.error(error)
-  //   }),
-  // ],
 })
 
 const client: RouterClient<typeof router, ClientContext> = createORPCClient(link)

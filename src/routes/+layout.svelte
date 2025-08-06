@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '../app.css'
   import { QueryClientProvider } from '@tanstack/svelte-query'
   import { SvelteQueryDevtools } from '@tanstack/svelte-query-devtools'
   import { navigating } from '$app/state'
@@ -13,10 +14,16 @@
 </svelte:head>
 
 <QueryClientProvider client={data.queryClient}>
-  <Nav />
-  {@render children?.()}
-  {#if navigating.to}
-    <p>Navigating.. (Page is stalled)</p>
-  {/if}
+  <div class="flex gap-4 h-dvh">
+    <Nav />
+    <main class="flex-1 flex justify-center items-center flex-col">
+      {#if navigating.to}
+        <p>
+          Navigating (Page is stalled)... <span class="animate-spin inline-block">⏳</span>
+        </p>
+      {/if}
+      {@render children?.()}
+    </main>
+  </div>
   <SvelteQueryDevtools />
 </QueryClientProvider>
