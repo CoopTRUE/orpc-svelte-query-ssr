@@ -3,6 +3,8 @@
 // We must allow content-type header to be cached so orpc can work
 
 export async function handle({ event, resolve }) {
+  globalThis.serverURL = event.url.origin
+
   const response = await resolve(event, {
     filterSerializedResponseHeaders: (name) => name === 'content-type',
   })

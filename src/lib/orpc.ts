@@ -3,17 +3,19 @@ import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins'
 import type { RouterClient } from '@orpc/server'
-import { createORPCSvelteQueryUtils } from '@orpc/svelte-query'
-import { browser, dev } from '$app/environment'
+import { createTanstackQueryUtils } from '@orpc/tanstack-query'
+import { browser } from '$app/environment'
 
 interface ClientContext {
   fetch?: typeof fetch
 }
 
-const baseURL = browser ? location.origin : `http://localhost:${dev ? 5173 : 3000}`
+function getBaseURL() {
+  return browser ? window.location.origin : globalThis.serverURL
+}
 
 const link = new RPCLink<ClientContext>({
-  url: `${baseURL}/rpc`,
+  url: () => `${getBaseURL()}/rpc`,
   // GET method tells sveltekit to cache the initial response for client hydration
   method: 'GET',
   fetch: (request, init, { context: { fetch: fetcher } }) => {
@@ -28,4 +30,4 @@ const link = new RPCLink<ClientContext>({
 })
 
 const client: RouterClient<typeof router, ClientContext> = createORPCClient(link)
-export const orpc = createORPCSvelteQueryUtils(client)
+export const orpc = createTanstackQueryUtils(client)

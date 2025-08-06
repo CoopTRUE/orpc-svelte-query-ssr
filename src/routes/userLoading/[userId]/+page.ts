@@ -3,7 +3,7 @@ import { browser } from '$app/environment'
 import { orpc } from '$lib/orpc'
 import { z } from 'zod'
 
-export async function load({ parent, params: { userId } }) {
+export async function load({ parent, params: { userId }, url }) {
   const parsed = z.coerce.number().int().gte(0).safeParse(userId)
   if (!parsed.success) {
     error(400, 'Invalid user ID')
