@@ -1,8 +1,8 @@
-# oRPC + SvelteQuery (Tanstack Query) + SSR + Prefetching
+# oRPC + SvelteQuery (Tanstack Query) + SSR + Hydration
 
 Template project for a SvelteKit project built with `oRPC` and `SvelteQuery` (Tanstack Query) with _NO double requests_.
 
-> All backend requests are made **ONCE** (even when SSR-ed), and reused during client hydration.
+> All backend requests are made **ONCE** (even when SSR-ed), and reused during client hydration using proper dehydration/hydration.
 
 ## Developing
 
@@ -23,89 +23,170 @@ bun run dev
 >
 > If you are still confused with the implementation, **READ THIS PROJECT'S SOURCE CODE**.
 
-To achieve hydration cache:
+To achieve proper SSR with hydration and no double requests:
 
-1. Modify the local oRPC client to make all requests _GET_ requests, and use `SimpleCsrfProtectionLinkPlugin` instead of the default `StrictGetMethodPlugin`.
-2. Specify we want to use the `fetch` function from `+page.ts/+layout.ts` in the oRPC client
-3. We tell sveltekit to cache the the `content-type` response header by adding it to the `filterSerializedResponseHeaders` function.
+### 1. 📝 Setup Global Types
 
-```diff
-// $lib/orpc.ts
+Update your `app.d.ts` to include the global client and dehydrated state:
 
-import type { router } from './server/rpc/router'
-import { createORPCClient } from '@orpc/client'
-import { RPCLink } from '@orpc/client/fetch'
-+ import { SimpleCsrfProtectionLinkPlugin } from '@orpc/client/plugins'
+```ts
+// src/app.d.ts
 import type { RouterClient } from '@orpc/server'
-import { createTanstackQueryUtils } from '@orpc/tanstack-query'
-import { browser } from '$app/environment'
+import type { DehydratedState } from '@tanstack/svelte-query'
+import type { router } from '$lib/server/rpc/router'
 
-+  interface ClientContext {
-+    fetch?: typeof fetch
-+  }
+declare global {
+  namespace App {
+    // interface Error {}
+    // interface Locals {}
+    // interface PageData {}
+    // interface PageState {}
+    // interface Platform {}
+  }
+  var $client: RouterClient<typeof router> | undefined
+  interface Window {
+    dehydrated: DehydratedState
+  }
+}
 
-+ function getBaseURL() {
-+   return browser ? window.location.origin : globalThis.serverURL
-+ }
-
-const link = new RPCLink<ClientContext>({
-+   url: () => `${getBaseURL()}/rpc`,
-+   // GET method tells sveltekit to cache the initial response for client hydration
-+   method: 'GET',
-+   fetch: (request, init, { context: { fetch: fetcher } }) => {
-+     // fetcher will be the fetch (if provided) passed from +page.ts or +layout.svelte
-+     return (fetcher ?? fetch)(request, init)
-+   },
-+   plugins: [
-+     // We disabled the StrictGetMethodPlugin as all methods are GET
-+     // But we still need to protect against CSRF attacks
-+     new SimpleCsrfProtectionLinkPlugin(),
-+   ],
-})
-
-- const client: RouterClient<typeof router> = createORPCClient(link)
-+  const client: RouterClient<typeof router, ClientContext> = createORPCClient(link)
-export const orpc = createTanstackQueryUtils(client)
+export {}
 ```
 
-```diff
-// src/routes/rpc/[...rest]/+server.ts
+### 2. 🖥️ Create Server-Side Client
 
-+ import { SimpleCsrfProtectionHandlerPlugin } from '@orpc/server/plugins'
+Create a server-side oRPC client that can be used during SSR (No network overhead):
 
-const handler = new RPCHandler(router, {
-+  // We disabled the StrictGetMethodPlugin as all methods are GET
-+  strictGetMethodPluginEnabled: false,
-+  // But we still need to protect against CSRF attacks
-+  plugins: [new SimpleCsrfProtectionHandlerPlugin()],
-})
+```ts
+// src/lib/server/orpc.server.ts
+import { router } from './rpc/router'
+import { createRouterClient } from '@orpc/server'
+
+globalThis.$client = createRouterClient(router)
 ```
+
+### 3. 🔌 Import Server Client in Hooks
 
 ```ts
 // src/hooks.server.ts
+import '$lib/server/orpc.server'
+```
 
-export async function handle({ event, resolve }) {
-  // Let oRPC know the server URL
-  globalThis.serverURL = event.url.origin
+### 4. 🔄 Setup Client with Alias
 
-  const response = await resolve(event, {
-    filterSerializedResponseHeaders: (name) => name === 'content-type',
-  })
+Update your client to use the global server client when available:
 
-  return response
+```diff
+// src/lib/orpc.ts
+
+- const client: RouterClient<typeof router> = globalThis.$client ?? createORPCClient(link)
++ const client: RouterClient<typeof router> = createORPCClient(link)
+export const orpc = createTanstackQueryUtils(client)
+```
+
+### 5. 🧊 Create Dehydration Utility
+
+Create a utility to safely serialize dehydrated state:
+
+```ts
+// src/lib/utils.ts
+import type { DehydratedState } from '@tanstack/svelte-query'
+
+const replacements = {
+  '<': '\\u003C',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029',
+}
+const pattern = new RegExp(`[${Object.keys(replacements).join('')}]`, 'g')
+
+export function createDehydratedScript(dehydratedState: DehydratedState) {
+  const escaped = JSON.stringify(dehydratedState).replace(
+    pattern,
+    (match) => replacements[match as keyof typeof replacements]
+  )
+  return `<script>window.dehydrated = ${escaped}</script>`
 }
 ```
 
-Finally, we can either **fully SSR** the data (in `+page.ts` or `+layout.ts`)
+### 6. ⚙️ Setup Layout with Query Client and Hydration
+
+Create your layout with proper dehydration/hydration setup:
 
 ```ts
-// src/routes/userSSR/[userId]/+page.ts
+// src/routes/(app)/+layout.ts
+import { StandardRPCJsonSerializer } from '@orpc/client/standard'
+import { dehydrate, hydrate, QueryClient } from '@tanstack/svelte-query'
+import { browser } from '$app/environment'
 
+const serializer = new StandardRPCJsonSerializer()
+
+export async function load() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: Infinity,
+        refetchOnMount: false,
+        refetchOnReconnect: false,
+        refetchOnWindowFocus: false,
+      },
+      dehydrate: {
+        serializeData(data) {
+          const [json, meta] = serializer.serialize(data)
+          return { json, meta }
+        },
+      },
+      hydrate: {
+        deserializeData(data) {
+          return serializer.deserialize(data.json, data.meta)
+        },
+      },
+    },
+  })
+
+  if (browser) {
+    hydrate(queryClient, window.dehydrated)
+  }
+
+  return { queryClient }
+}
+```
+
+### 7. 🎨 Update Layout Component for Dehydration
+
+```tsx
+<!-- src/routes/(app)/+layout.svelte -->
+<script lang="ts">
+  import { dehydrate, QueryClientProvider } from '@tanstack/svelte-query'
+  import { browser } from '$app/environment'
+  import { createDehydratedScript } from '$lib/utils'
+
+  let { children, data } = $props()
+</script>
+
+<svelte:head>
+  {#if !browser}
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+    {@html createDehydratedScript(dehydrate(data.queryClient))}
+  {/if}
+</svelte:head>
+
+<QueryClientProvider client={data.queryClient}>
+  {@render children?.()}
+</QueryClientProvider>
+```
+
+## 🚀 Usage Examples
+
+### 🏃‍♂️ SSR with Hydration
+
+For pages that need data immediately available (no loading states):
+
+```ts
+// src/routes/(app)/userSSR/[userId]/+page.ts
 import { error } from '@sveltejs/kit'
 import { orpc } from '$lib/orpc'
 import { z } from 'zod'
 
-export async function load({ parent, params: { userId }, fetch }) {
+export async function load({ parent, params: { userId } }) {
   const parsed = z.coerce.number().int().gte(0).safeParse(userId)
   if (!parsed.success) {
     error(400, 'Invalid user ID')
@@ -113,21 +194,18 @@ export async function load({ parent, params: { userId }, fetch }) {
   const id = parsed.data
 
   const { queryClient } = await parent()
-  await queryClient.ensureQueryData(
-    // Must pass fetch if orpc is used in ensureQueryData
-    orpc.user.get.queryOptions({ input: { id }, context: { fetch } })
-  )
+  await queryClient.ensureQueryData(orpc.user.get.queryOptions({ input: { id } }))
 
-  // Always return just the id, svelte-query will handle the rest
   return { userId: id }
 }
 ```
 
-or **just prefetch** the data (in `+page.ts` or `+layout.ts`)
+### ⏳ Client-Side Loading with Prefetching
+
+For pages that can show loading states but benefit from prefetching:
 
 ```ts
-// src/routes/userLoading/[userId]/+page.ts
-
+// src/routes/(app)/userLoading/[userId]/+page.ts
 import { error } from '@sveltejs/kit'
 import { browser } from '$app/environment'
 import { orpc } from '$lib/orpc'
@@ -141,63 +219,31 @@ export async function load({ parent, params: { userId } }) {
   const id = parsed.data
 
   const { queryClient } = await parent()
-  // MUST ADD browser check to avoid prefetching on server
-  // (Pointless to prefetch on server)
+  // Only prefetch on client-side navigation
   if (browser) {
-    queryClient.prefetchQuery(
-      // No need to pass fetch as we can use the window's fetch
-      orpc.user.get.queryOptions({ input: { id } })
-    )
+    queryClient.prefetchQuery(orpc.user.get.queryOptions({ input: { id } }))
   }
 
-  // Always return just the id, svelte-query will handle the rest
   return { userId: id }
 }
 ```
 
-> [!WARNING]
-> Make sure your queryClient has sensible default options, otherwise you might end up with double requests.
+## 🔍 Querying on the Client
 
-```ts
-// src/routes/+layout.ts
+You can query on the client with the same `orpc` syntax as before, with proper SSR support:
 
-import { QueryClient } from '@tanstack/svelte-query'
-
-export async function load() {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        staleTime: Infinity,
-        refetchOnMount: false,
-        refetchOnReconnect: false,
-        refetchOnWindowFocus: false,
-        experimental_prefetchInRender: true,
-        // Do not include { enabled: browser }
-      },
-    },
-  })
-
-  return { queryClient }
-}
-```
-
-## Querying on the client
-
-You'd be happy to know that you can query on the client with the same `orpc` syntax as before.
-
-> [!NOTE]
-> If you SSR the data, you can assume the data is already fetched and available in the query client. I usually do a non-null assertion `const user = $derived($userQuery.data!)`.
-
-```ts
-// src/lib/components/UserCard.svelte
-
+```svelte
+<!-- src/lib/components/UserCard.svelte -->
 <script lang="ts">
   import { createQuery } from '@tanstack/svelte-query'
+  import { browser } from '$app/environment'
   import { orpc } from '$lib/orpc'
 
   let { userId }: { userId: number } = $props()
 
-  const userQuery = $derived(createQuery(orpc.user.get.queryOptions({ input: { id: userId } })))
+  const userQuery = $derived(
+    createQuery(orpc.user.get.queryOptions({ input: { id: userId }, enabled: browser }))
+  )
 </script>
 
 <div>
@@ -218,4 +264,53 @@ You'd be happy to know that you can query on the client with the same `orpc` syn
 </div>
 ```
 
-TS does **NOT** PMO
+### 🚄 Advanced Features
+
+The new implementation also supports advanced features like batching and prefetching:
+
+```svelte
+<!-- Example: Prefetching multiple users -->
+<script lang="ts">
+  import { createMutation, useQueryClient } from '@tanstack/svelte-query'
+  import { orpc } from '$lib/orpc'
+
+  const queryClient = useQueryClient()
+
+  const prefetchUsers = createMutation({
+    mutationFn: async () => {
+      await Promise.all(
+        Array.from({ length: 10 }, async (_, i) => {
+          const options = orpc.user.get.queryOptions({ input: { id: i + 1 } })
+          await queryClient.prefetchQuery(options)
+        })
+      )
+    },
+  })
+</script>
+
+<button onclick={() => $prefetchUsers.mutate()}>
+  Preload users 1-10
+  {#if $prefetchUsers.isPending}
+    <span class="animate-spin inline-block">⏳</span>
+  {/if}
+</button>
+```
+
+## ✨ Key Benefits
+
+- **🚫 No double requests**: Server-side data is properly dehydrated and hydrated on the client
+- **📦 Batching support**: Multiple requests are automatically batched for better performance
+- **🔒 Type safety**: Full TypeScript support with proper oRPC integration
+- **🎛️ Flexible loading**: Choose between SSR, prefetching, or client-side loading per route
+- **⚡ Performance**: Optimal loading strategies with proper caching and serialization
+
+## 📝 Notes
+
+> [!IMPORTANT]
+>
+> - 🌐 The `enabled: browser` flag is crucial for components that may render on both server and client
+> - 💧 Data fetched during SSR is automatically available on the client through dehydration
+> - 🖥️ The server-side client (`globalThis.$client`) allows for efficient server-side data fetching
+> - 📦 Batching reduces the number of HTTP requests when multiple queries are made simultaneously
+
+**TS** does NOT **PMO**

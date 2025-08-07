@@ -28,7 +28,6 @@ export async function load() {
   })
 
   if (browser) {
-    console.log('HYDRATING')
     hydrate(queryClient, window.dehydrated)
   }
 
