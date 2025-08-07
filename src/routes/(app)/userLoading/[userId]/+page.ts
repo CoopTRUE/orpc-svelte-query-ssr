@@ -13,10 +13,7 @@ export async function load({ parent, params: { userId } }) {
   const { queryClient } = await parent()
   // MUST ADD browser check to avoid prefetching on server (Pointless to prefetch on server)
   if (browser) {
-    queryClient.prefetchQuery(
-      // No need to pass fetch as we can use the window's fetch
-      orpc.user.get.queryOptions({ input: { id } })
-    )
+    queryClient.prefetchQuery(orpc.user.get.queryOptions({ input: { id } }))
   }
 
   // Always return just the id, svelte-query will handle the rest
