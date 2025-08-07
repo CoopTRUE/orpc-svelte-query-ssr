@@ -1,6 +1,6 @@
 # oRPC + SvelteQuery (Tanstack Query) + SSR + Hydration
 
-Template project for a SvelteKit project built with `oRPC` and `SvelteQuery` (Tanstack Query) with _NO double requests_.
+Template project for a SvelteKit project built with `oRPC` and `SvelteQuery` (Tanstack Query) with **_NO double requests_**.
 
 > All backend requests are made **ONCE** (even when SSR-ed), and reused during client hydration using proper dehydration/hydration.
 
@@ -19,7 +19,7 @@ bun run dev
 ## Implementation
 
 > [!IMPORTANT]
-> This README assumes that you already have [Tanstack Query](https://tanstack.com/query/v5/docs/framework/svelte/ssr) and [oRPC](https://orpc.unnoq.com/docs/integrations/tanstack-query) setup in your project.
+> This README assumes that you already have [Tanstack Query](https://tanstack.com/query/v5/docs/framework/svelte/ssr) and [oRPC](https://orpc.unnoq.com/docs/adapters/svelte-kit) setup in your project.
 >
 > If you are still confused with the implementation, **READ THIS PROJECT'S SOURCE CODE**.
 
@@ -73,7 +73,7 @@ import '$lib/server/orpc.server'
 
 ### 4. 🔄 Setup Client with Alias
 
-Update your client to use the global server client when available:
+Update your local client to use the global server client when available:
 
 ```diff
 // src/lib/orpc.ts
@@ -230,7 +230,7 @@ export async function load({ parent, params: { userId } }) {
 
 ## 🔍 Querying on the Client
 
-You can query on the client with the same `orpc` syntax as before, with proper SSR support:
+You can query on the client with the same `orpc` syntax as before, (There will be no loading states if you SSRed):
 
 ```svelte
 <!-- src/lib/components/UserCard.svelte -->
@@ -241,9 +241,7 @@ You can query on the client with the same `orpc` syntax as before, with proper S
 
   let { userId }: { userId: number } = $props()
 
-  const userQuery = $derived(
-    createQuery(orpc.user.get.queryOptions({ input: { id: userId }, enabled: browser }))
-  )
+  const userQuery = $derived(createQuery(orpc.user.get.queryOptions({ input: { id: userId } })))
 </script>
 
 <div>
@@ -266,9 +264,9 @@ You can query on the client with the same `orpc` syntax as before, with proper S
 
 ### 🚄 Advanced Features
 
-The new implementation also supports advanced features like batching and prefetching:
+The new implementation also fully supports any and all oRPC plugins like [batching](https://orpc.unnoq.com/docs/plugins/batch-requests)
 
-```svelte
+```tsx
 <!-- Example: Prefetching multiple users -->
 <script lang="ts">
   import { createMutation, useQueryClient } from '@tanstack/svelte-query'
@@ -295,22 +293,5 @@ The new implementation also supports advanced features like batching and prefetc
   {/if}
 </button>
 ```
-
-## ✨ Key Benefits
-
-- **🚫 No double requests**: Server-side data is properly dehydrated and hydrated on the client
-- **📦 Batching support**: Multiple requests are automatically batched for better performance
-- **🔒 Type safety**: Full TypeScript support with proper oRPC integration
-- **🎛️ Flexible loading**: Choose between SSR, prefetching, or client-side loading per route
-- **⚡ Performance**: Optimal loading strategies with proper caching and serialization
-
-## 📝 Notes
-
-> [!IMPORTANT]
->
-> - 🌐 The `enabled: browser` flag is crucial for components that may render on both server and client
-> - 💧 Data fetched during SSR is automatically available on the client through dehydration
-> - 🖥️ The server-side client (`globalThis.$client`) allows for efficient server-side data fetching
-> - 📦 Batching reduces the number of HTTP requests when multiple queries are made simultaneously
 
 **TS** does NOT **PMO**

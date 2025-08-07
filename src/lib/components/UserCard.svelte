@@ -5,9 +5,7 @@
 
   let { userId }: { userId: number } = $props()
 
-  const userQuery = $derived(
-    createQuery(orpc.user.get.queryOptions({ input: { id: userId }, enabled: browser }))
-  )
+  const userQuery = $derived(createQuery(orpc.user.get.queryOptions({ input: { id: userId } })))
 </script>
 
 <div>

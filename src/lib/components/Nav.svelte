@@ -60,7 +60,8 @@
 
 <style lang="postcss">
   @reference "tailwindcss";
-  a {
+  a,
+  button {
     @apply text-blue-500 bg-blue-100 rounded-md p-2;
   }
 </style>

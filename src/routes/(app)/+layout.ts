@@ -1,5 +1,5 @@
 import { StandardRPCJsonSerializer } from '@orpc/client/standard'
-import { dehydrate, hydrate, QueryClient } from '@tanstack/svelte-query'
+import { hydrate, QueryClient } from '@tanstack/svelte-query'
 import { browser } from '$app/environment'
 
 const serializer = new StandardRPCJsonSerializer()
@@ -12,6 +12,7 @@ export async function load() {
         refetchOnMount: false,
         refetchOnReconnect: false,
         refetchOnWindowFocus: false,
+        enabled: browser,
       },
       dehydrate: {
         serializeData(data) {
