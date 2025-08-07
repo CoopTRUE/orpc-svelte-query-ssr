@@ -78,8 +78,8 @@ Update your local client to use the global server client when available:
 ```diff
 // src/lib/orpc.ts
 
-- const client: RouterClient<typeof router> = globalThis.$client ?? createORPCClient(link)
-+ const client: RouterClient<typeof router> = createORPCClient(link)
+- const client: RouterClient<typeof router> = createORPCClient(link)
++ const client: RouterClient<typeof router> = globalThis.$client ?? createORPCClient(link)
 export const orpc = createTanstackQueryUtils(client)
 ```
 
@@ -114,7 +114,7 @@ Create your layout with proper dehydration/hydration setup:
 ```ts
 // src/routes/(app)/+layout.ts
 import { StandardRPCJsonSerializer } from '@orpc/client/standard'
-import { dehydrate, hydrate, QueryClient } from '@tanstack/svelte-query'
+import { hydrate, QueryClient } from '@tanstack/svelte-query'
 import { browser } from '$app/environment'
 
 const serializer = new StandardRPCJsonSerializer()
@@ -127,6 +127,7 @@ export async function load() {
         refetchOnMount: false,
         refetchOnReconnect: false,
         refetchOnWindowFocus: false,
+        enabled: browser,
       },
       dehydrate: {
         serializeData(data) {
@@ -293,5 +294,3 @@ The new implementation also fully supports any and all oRPC plugins like [batchi
   {/if}
 </button>
 ```
-
-**TS** does NOT **PMO**
