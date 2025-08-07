@@ -1,13 +1,10 @@
 import { RPCHandler } from '@orpc/server/fetch'
-import { SimpleCsrfProtectionHandlerPlugin } from '@orpc/server/plugins'
+import { BatchHandlerPlugin } from '@orpc/server/plugins'
 import type { RequestHandler } from '@sveltejs/kit'
 import { router } from '$lib/server/rpc/router'
 
 const handler = new RPCHandler(router, {
-  // We disabled the StrictGetMethodPlugin as all methods are GET
-  strictGetMethodPluginEnabled: false,
-  // But we still need to protect against CSRF attacks
-  plugins: [new SimpleCsrfProtectionHandlerPlugin()],
+  plugins: [new BatchHandlerPlugin()],
 })
 
 const handle: RequestHandler = async ({ request }) => {

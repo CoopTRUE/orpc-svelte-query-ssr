@@ -1,10 +1,13 @@
 <script lang="ts">
   import { createQuery } from '@tanstack/svelte-query'
+  import { browser } from '$app/environment'
   import { orpc } from '$lib/orpc'
 
   let { userId }: { userId: number } = $props()
 
-  const userQuery = $derived(createQuery(orpc.user.get.queryOptions({ input: { id: userId } })))
+  const userQuery = $derived(
+    createQuery(orpc.user.get.queryOptions({ input: { id: userId }, enabled: browser }))
+  )
 </script>
 
 <div>

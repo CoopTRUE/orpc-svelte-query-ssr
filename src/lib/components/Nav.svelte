@@ -1,5 +1,21 @@
 <script lang="ts">
+  import { createMutation, useQueryClient } from '@tanstack/svelte-query'
+  import { orpc } from '$lib/orpc'
+
+  const queryClient = useQueryClient()
+
   let userInput = $state<number>()
+
+  const prefetchUsers = createMutation({
+    mutationFn: async () => {
+      await Promise.all(
+        Array.from({ length: 10 }, async (_, i) => {
+          const options = orpc.user.get.queryOptions({ input: { id: i + 1 } })
+          await queryClient.prefetchQuery(options)
+        })
+      )
+    },
+  })
 </script>
 
 <nav class="flex flex-col gap-4 w-64 bg-gray-800 rounded-lg p-4 justify-evenly">
@@ -19,6 +35,14 @@
     <a href="/userLoading/10">User 10</a>
     <a href="/userLoading/100">User 100</a>
     <a href="/userLoading/-1">User Invalid</a>
+  </div>
+  <div>
+    <button onclick={() => $prefetchUsers.mutate()}>
+      Preload users 1-10
+      {#if $prefetchUsers.isPending}
+        <span class="animate-spin inline-block">⏳</span>
+      {/if}
+    </button>
   </div>
   <div>
     <div class="grid grid-cols-2 gap-2 text-center">
