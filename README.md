@@ -1,3 +1,5 @@
+
+
 # oRPC + SvelteQuery (Tanstack Query) + SSR + Hydration
 
 Template project for a SvelteKit project built with `oRPC` and `SvelteQuery` (Tanstack Query) with **_NO double requests_**.
@@ -153,7 +155,7 @@ export async function load() {
 
 ### 7. 🎨 Update Layout Component for Dehydration
 
-```tsx
+```svelte
 <!-- src/routes/(app)/+layout.svelte -->
 <script lang="ts">
   import { dehydrate, QueryClientProvider } from '@tanstack/svelte-query'
